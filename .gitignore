@@ -2,3 +2,8 @@ node_modules/
 package-lock.json
 # Per-entity palette icons written at runtime from the MultiFlexi catalog push
 icons/mf-*
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/node-red-contrib-multiflexi.substvars
+debian/node-red-contrib-multiflexi/

@@ -1,5 +1,7 @@
 # node-red-contrib-multiflexi
 
+![node-red-contrib-multiflexi logo](node-red-contrib-multiflexi.svg?raw=true)
+
 Node-RED nodes for visually orchestrating [MultiFlexi](https://multiflexi.eu/)
 processes. Receive webhook and job events from the MultiFlexi event processor
 (`multiflexi-eventor`) and schedule RunTemplates — the "arrows" in your flow
