@@ -1,9 +1,7 @@
 module.exports = function (RED) {
     'use strict';
 
-    const http = require('http');
-    const https = require('https');
-    const { URL } = require('url');
+    const { postJob } = require('./lib/postJob');
 
     /**
      * MultiFlexi RunTemplate (action) node.
@@ -31,57 +29,6 @@ module.exports = function (RED) {
             });
         } catch (e) {
             staticEnv = {};
-        }
-
-        function postJob(body) {
-            return new Promise((resolve, reject) => {
-                const target = new URL(node.server.baseUrl + '/job/');
-                const payload = JSON.stringify(body);
-                const transport = target.protocol === 'https:' ? https : http;
-
-                const auth = node.server.credentials
-                    ? Buffer.from(
-                          (node.server.credentials.username || '') + ':' + (node.server.credentials.password || ''),
-                      ).toString('base64')
-                    : '';
-
-                const options = {
-                    method: 'POST',
-                    hostname: target.hostname,
-                    port: target.port,
-                    path: target.pathname + target.search,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(payload),
-                    },
-                };
-                if (auth) {
-                    options.headers.Authorization = 'Basic ' + auth;
-                }
-
-                const req = transport.request(options, (res) => {
-                    let data = '';
-                    res.on('data', (chunk) => {
-                        data += chunk;
-                    });
-                    res.on('end', () => {
-                        let parsed = data;
-                        try {
-                            parsed = JSON.parse(data);
-                        } catch (e) {
-                            /* keep raw */
-                        }
-                        if (res.statusCode >= 200 && res.statusCode < 300) {
-                            resolve(parsed);
-                        } else {
-                            reject(new Error('HTTP ' + res.statusCode + ': ' + JSON.stringify(parsed)));
-                        }
-                    });
-                });
-                req.on('error', reject);
-                req.write(payload);
-                req.end();
-            });
         }
 
         node.on('input', function (msg, send, done) {
@@ -114,7 +61,7 @@ module.exports = function (RED) {
 
             node.status({ fill: 'blue', shape: 'dot', text: 'scheduling #' + runtemplateId });
 
-            postJob(body)
+            postJob(node.server, body)
                 .then((result) => {
                     msg.payload = result;
                     node.status({ fill: 'green', shape: 'dot', text: 'job ' + (result.job_id || 'scheduled') });

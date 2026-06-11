@@ -1,0 +1,4 @@
+node_modules/
+package-lock.json
+# Per-entity palette icons written at runtime from the MultiFlexi catalog push
+icons/mf-*

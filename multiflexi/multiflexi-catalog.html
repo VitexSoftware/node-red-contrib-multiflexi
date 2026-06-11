@@ -1,0 +1,90 @@
+<script type="text/javascript">
+    RED.nodes.registerType('multiflexi-catalog', {
+        category: 'MultiFlexi',
+        color: '#16a085',
+        defaults: {
+            name: { value: '' },
+            path: { value: '/multiflexi-catalog', required: true },
+        },
+        credentials: {
+            token: { type: 'password' },
+        },
+        inputs: 0,
+        outputs: 1,
+        icon: 'multiflexi.svg',
+        label: function () {
+            return this.name || 'MultiFlexi catalog';
+        },
+    });
+</script>
+
+<script type="text/html" data-template-name="multiflexi-catalog">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="MultiFlexi catalog" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-path"><i class="fa fa-globe"></i> Path</label>
+        <input type="text" id="node-input-path" placeholder="/multiflexi-catalog" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-token"><i class="fa fa-key"></i> Token</label>
+        <input type="password" id="node-input-token" placeholder="(optional) X-MultiFlexi-Token" />
+    </div>
+</script>
+
+<script type="text/html" data-help-name="multiflexi-catalog">
+    <p>Receives the MultiFlexi configuration catalog pushed by the
+    <code>multiflexi-eventor</code> daemon (set <code>NODERED_CATALOG_URL</code>
+    to this node's path).</p>
+    <p>Each company, enabled run-template and credential is added to the palette
+    as its own node (under the <b>MultiFlexi Companies</b>,
+    <b>MultiFlexi RunTemplates</b> and <b>MultiFlexi Credentials</b> categories),
+    using the same icon it has in MultiFlexi.</p>
+    <p><b>Reload the editor</b> after the first push to see the generated palette
+    nodes.</p>
+    <h3>Output</h3>
+    <dl class="message-properties">
+        <dt>payload <span class="property-type">object</span></dt>
+        <dd>The received catalog (<code>companies</code>, <code>runtemplates</code>, <code>credentials</code>).</dd>
+    </dl>
+</script>
+
+<script type="text/javascript">
+    // Build dynamic palette entries from the cached MultiFlexi catalog.
+    // Each entity becomes its own node type, carrying its MultiFlexi icon.
+    (function () {
+        if (window.__multiflexiCatalogLoaded) {
+            return;
+        }
+        window.__multiflexiCatalogLoaded = true;
+
+        var KINDS = [
+            { key: 'companies', prefix: 'company', prop: 'company', category: 'MultiFlexi Companies', color: '#2980b9' },
+            { key: 'runtemplates', prefix: 'runtemplate', prop: 'runtemplate', category: 'MultiFlexi RunTemplates', color: '#27ae60' },
+            { key: 'credentials', prefix: 'credential', prop: 'credential', category: 'MultiFlexi Credentials', color: '#8e44ad' },
+        ];
+
+        $.getJSON('multiflexi-catalog/list', function (catalog) {
+            KINDS.forEach(function (k) {
+                (catalog[k.key] || []).forEach(function (entity) {
+                    var type = 'multiflexi-' + k.prefix + '-' + entity.id;
+                    if (RED.nodes.getType(type)) {
+                        return; // already registered
+                    }
+                    var label = entity.name || (k.prefix + ' #' + entity.id);
+                    RED.nodes.registerType(type, {
+                        category: k.category,
+                        color: k.color,
+                        paletteLabel: label,
+                        icon: entity.iconFile || 'multiflexi.svg',
+                        defaults: { name: { value: '' } },
+                        inputs: 1,
+                        outputs: 1,
+                        label: function () { return this.name || label; },
+                    });
+                });
+            });
+        });
+    })();
+</script>
