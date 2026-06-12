@@ -130,7 +130,10 @@ module.exports = function (RED) {
         node.path = rawPath;
         node.token = (node.credentials && node.credentials.token ? node.credentials.token : (config.token || '')).trim();
 
-        const maxSize = RED.settings.apiMaxLength || '20mb';
+        // The catalog inlines every entity icon as a base64 data URI, so the
+        // payload can be several MB. Use a generous dedicated limit rather than
+        // apiMaxLength (which defaults to 5mb and would reject larger catalogs).
+        const maxSize = RED.settings.multiflexiCatalogMaxLength || '64mb';
         const jsonParser = bodyParser.json({ limit: maxSize });
 
         function handlePost(req, res) {
