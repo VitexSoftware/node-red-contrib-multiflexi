@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+    purge)
+        rm -rf /var/lib/node-red-contrib-multiflexi
+        ;;
+esac
+
+# Reload systemd after the NODE_PATH drop-in is removed on package removal.
+if [ "$1" = "remove" ] || [ "$1" = "purge" ]; then
+    systemctl daemon-reload 2>/dev/null || true
+fi
+
+#DEBHELPER#
+
+exit 0

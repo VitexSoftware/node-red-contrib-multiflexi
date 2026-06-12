@@ -1,3 +1,17 @@
+node-red-contrib-multiflexi (0.3.0) trixie; urgency=medium
+
+  * Catalog icons now come from the MultiFlexi web image endpoints
+    (appimage.php / companylogo.php / credentialimage.php) instead of base64
+    in the push payload. New MULTIFLEXI_APP_URL node setting (default
+    /multiflexi/); the catalog node fetches+caches each icon and the editor
+    registers it client-side so the palette renders without a node-red restart.
+  * Ship a writable module icon dir (symlink to /var/lib/node-red-contrib-
+    multiflexi/icons) so per-entity icons can be cached on a read-only install.
+  * Ship a systemd drop-in adding /usr/share/node-red to the node-red service
+    NODE_PATH so node-red starts correctly.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Fri, 12 Jun 2026 10:30:00 +0200
+
 node-red-contrib-multiflexi (0.2.0) trixie; urgency=medium
 
   * Add multiflexi-catalog node: receives the MultiFlexi config catalog pushed

@@ -75,6 +75,12 @@ Company and credential nodes stamp their identity onto the message
 (`msg.company` / `msg.credential`); run-template nodes set `msg.runtemplate_id`
 so they can feed a **multiflexi-runtemplate** node for scheduling.
 
+Icons are fetched from the MultiFlexi web image endpoints (`appimage.php`,
+`companylogo.php`, `credentialimage.php`) and cached locally — set the catalog
+node's **App URL** (`MULTIFLEXI_APP_URL`, default `/multiflexi/`) to where the
+MultiFlexi web UI is reachable. node-red must be able to reach those endpoints
+(they are public — no MultiFlexi login required).
+
 **Reload the editor** after the first push to see the generated palette nodes.
 The catalog is re-published periodically (`NODERED_CATALOG_INTERVAL`, default
 300 s) and whenever its content changes.

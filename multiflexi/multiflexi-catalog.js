@@ -22,7 +22,10 @@ const { createStore } = require('./lib/catalog');
  */
 module.exports = function (RED) {
     const store = createStore({
-        iconsDir: path.join(__dirname, '..', 'icons'),
+        // node-red registers a module's icons from <node-file-dir>/icons, so
+        // per-entity icons must be written next to the node files. On a Debian
+        // install this directory is a symlink to a writable var location.
+        iconsDir: path.join(__dirname, 'icons'),
         cacheFile: path.join(RED.settings.userDir || '.', 'multiflexi-catalog.json'),
         log: RED.log,
     });
@@ -129,11 +132,12 @@ module.exports = function (RED) {
         if (rawPath[0] !== '/') { rawPath = '/' + rawPath; }
         node.path = rawPath;
         node.token = (node.credentials && node.credentials.token ? node.credentials.token : (config.token || '')).trim();
+        // Base URL of the MultiFlexi web image endpoints (appimage.php etc.).
+        node.appUrl = (config.appUrl || '/multiflexi/').trim();
 
-        // The catalog inlines every entity icon as a base64 data URI, so the
-        // payload can be several MB. Use a generous dedicated limit rather than
-        // apiMaxLength (which defaults to 5mb and would reject larger catalogs).
-        const maxSize = RED.settings.multiflexiCatalogMaxLength || '64mb';
+        // The daemon now sends identifiers only (no inlined icons), so the
+        // payload is small; a 4mb limit is plenty.
+        const maxSize = RED.settings.multiflexiCatalogMaxLength || '4mb';
         const jsonParser = bodyParser.json({ limit: maxSize });
 
         function handlePost(req, res) {
@@ -154,15 +158,20 @@ module.exports = function (RED) {
                 return;
             }
 
-            const catalog = store.process(raw);
-            registerDynamic(catalog); // make new types usable without a full restart
+            // Fetch+cache each entity icon from the MultiFlexi web endpoints.
+            store.process(raw, node.appUrl).then(function (catalog) {
+                registerDynamic(catalog); // make new types usable without a full restart
 
-            const counts =
-                catalog.companies.length + ' co / ' +
-                catalog.runtemplates.length + ' rt / ' +
-                catalog.credentials.length + ' cred';
-            node.status({ fill: 'green', shape: 'dot', text: counts + ' @ ' + new Date().toLocaleTimeString() });
-            node.send({ event: 'catalog.update', payload: catalog });
+                const counts =
+                    catalog.companies.length + ' co / ' +
+                    catalog.runtemplates.length + ' rt / ' +
+                    catalog.credentials.length + ' cred';
+                node.status({ fill: 'green', shape: 'dot', text: counts + ' @ ' + new Date().toLocaleTimeString() });
+                node.send({ event: 'catalog.update', payload: catalog });
+            }).catch(function (err) {
+                node.status({ fill: 'red', shape: 'ring', text: 'ingest failed' });
+                node.warn('MultiFlexi catalog ingest failed: ' + err.message);
+            });
         }
 
         RED.httpNode.post(node.path, jsonParser, handlePost);

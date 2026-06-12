@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-multiflexi",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Node-RED nodes for visually orchestrating MultiFlexi: receive webhook/job events and schedule RunTemplates",
   "keywords": [
     "node-red",

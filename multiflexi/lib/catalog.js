@@ -2,26 +2,42 @@
 
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
 
-// kind grouping: payload key -> singular type prefix + msg property
+// kind grouping: payload key -> singular type prefix, msg property, and the
+// MultiFlexi web image endpoint used to render the entity's icon.
 const KINDS = [
-    { key: 'companies', prefix: 'company', prop: 'company' },
-    { key: 'runtemplates', prefix: 'runtemplate', prop: 'runtemplate' },
-    { key: 'credentials', prefix: 'credential', prop: 'credential' },
+    {
+        key: 'companies', prefix: 'company', prop: 'company',
+        script: 'companylogo.php', query: function (e) { return 'id=' + e.id; },
+        skip: function () { return false; },
+    },
+    {
+        key: 'runtemplates', prefix: 'runtemplate', prop: 'runtemplate',
+        script: 'appimage.php', query: function (e) { return 'uuid=' + encodeURIComponent(e.app_uuid || ''); },
+        skip: function (e) { return !e.app_uuid; },
+    },
+    {
+        key: 'credentials', prefix: 'credential', prop: 'credential',
+        script: 'credentialimage.php', query: function (e) { return 'id=' + e.id; },
+        skip: function () { return false; },
+    },
 ];
 
-const MIME_EXT = {
+const CONTENT_TYPE_EXT = {
     'image/svg+xml': 'svg',
     'image/png': 'png',
     'image/jpeg': 'jpg',
-    'image/jpg': 'jpg',
     'image/gif': 'gif',
     'image/webp': 'webp',
 };
 
 /**
- * Catalog store: turns the raw catalog pushed by MultiFlexi into a lean catalog
- * (icon data URIs written to files, icon filename recorded) and persists it.
+ * Catalog store: builds the per-entity MultiFlexi image URLs, fetches each icon
+ * once and caches it as a node-red-served icon file, and persists a lean
+ * catalog (with iconUrl + iconFile) for the editor to consume.
  *
  * Pure of Node-RED so it can be unit-tested directly.
  *
@@ -32,50 +48,121 @@ function createStore(opts) {
     const cacheFile = opts.cacheFile;
     const log = opts.log || { warn: function () {} };
 
-    /**
-     * Decode a data: URI icon and write it into the icons dir.
-     * Returns the written filename, or null when nothing usable was written.
-     */
-    function writeIcon(prefix, id, icon) {
-        if (typeof icon !== 'string' || icon.indexOf('data:') !== 0) {
-            return null;
+    /** Ensure the configured app URL ends with a single trailing slash. */
+    function normaliseBase(appUrl) {
+        let base = (appUrl || '/multiflexi/').trim();
+        if (base.charAt(base.length - 1) !== '/') {
+            base += '/';
         }
-        const m = /^data:([^;]+);base64,(.*)$/s.exec(icon);
-        if (!m) {
-            return null;
+        return base;
+    }
+
+    /** Resolve a (possibly relative) app URL to an absolute one for server-side fetch. */
+    function toAbsolute(base) {
+        if (/^https?:\/\//i.test(base)) {
+            return base;
         }
-        const ext = MIME_EXT[m[1].toLowerCase()];
-        if (!ext) {
-            return null;
-        }
-        const filename = 'mf-' + prefix + '-' + id + '.' + ext;
-        try {
+        // Relative path (e.g. "/multiflexi/") — resolve against the local web server.
+        return 'http://127.0.0.1' + (base.charAt(0) === '/' ? '' : '/') + base;
+    }
+
+    function iconUrl(base, kind, entity) {
+        return base + kind.script + '?' + kind.query(entity);
+    }
+
+    /** Fetch image bytes from an absolute URL. */
+    function fetchIcon(absoluteUrl) {
+        return new Promise(function (resolve, reject) {
+            let target;
+            try {
+                target = new URL(absoluteUrl);
+            } catch (e) {
+                return reject(e);
+            }
+            const transport = target.protocol === 'https:' ? https : http;
+            const req = transport.get(target, function (res) {
+                if (res.statusCode !== 200) {
+                    res.resume();
+                    return reject(new Error('HTTP ' + res.statusCode));
+                }
+                const ct = (res.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+                const chunks = [];
+                res.on('data', function (c) { chunks.push(c); });
+                res.on('end', function () {
+                    resolve({ buffer: Buffer.concat(chunks), ext: CONTENT_TYPE_EXT[ct] || 'svg' });
+                });
+            });
+            req.on('error', reject);
+            req.setTimeout(8000, function () { req.destroy(new Error('timeout')); });
+        });
+    }
+
+    /** Fetch and cache one entity icon. Returns the written filename or null. */
+    function cacheIcon(prefix, id, absoluteUrl) {
+        return fetchIcon(absoluteUrl).then(function (img) {
+            if (!img.buffer.length) {
+                return null;
+            }
+            const filename = 'mf-' + prefix + '-' + id + '.' + img.ext;
             fs.mkdirSync(iconsDir, { recursive: true });
-            fs.writeFileSync(path.join(iconsDir, filename), Buffer.from(m[2], 'base64'));
+            fs.writeFileSync(path.join(iconsDir, filename), img.buffer);
             return filename;
-        } catch (e) {
-            // Read-only install (e.g. system package): icons just won't update.
-            log.warn('multiflexi-catalog: could not write icon ' + filename + ': ' + e.message);
+        }).catch(function (e) {
+            log.warn('multiflexi-catalog: icon fetch failed for ' + prefix + ' ' + id + ': ' + e.message);
             return null;
-        }
+        });
+    }
+
+    /** Run task-producing functions with bounded concurrency. */
+    function runPool(tasks, limit) {
+        return new Promise(function (resolve) {
+            if (tasks.length === 0) { return resolve(); }
+            let index = 0;
+            let finished = 0;
+
+            function settle() {
+                if (++finished === tasks.length) { resolve(); } else { pump(); }
+            }
+            function pump() {
+                while (index < tasks.length && (index - finished) < limit) {
+                    tasks[index++]().then(settle, settle);
+                }
+            }
+            pump();
+        });
     }
 
     /**
-     * Strip bulky icon data URIs (writing them to files) and record the icon
-     * filename instead. Does not persist.
+     * Build the lean catalog: attach the browser-resolvable iconUrl and fetch +
+     * cache the served iconFile for each entity. Async, with bounded concurrency
+     * so a large catalog doesn't overwhelm the MultiFlexi web server.
      */
-    function ingest(raw) {
+    function ingest(raw, appUrl) {
+        const base = normaliseBase(appUrl);
+        const absBase = toAbsolute(base);
         const out = {};
+        const tasks = [];
+
         KINDS.forEach(function (k) {
             out[k.key] = (Array.isArray(raw[k.key]) ? raw[k.key] : []).map(function (e) {
-                const iconFile = writeIcon(k.prefix, e.id, e.icon);
                 const lean = Object.assign({}, e);
-                delete lean.icon;
-                lean.iconFile = iconFile;
+                if (k.skip(e)) {
+                    lean.iconUrl = null;
+                    lean.iconFile = null;
+                    return lean;
+                }
+                lean.iconUrl = iconUrl(base, k, e);          // for the editor (browser)
+                lean.iconFile = null;
+                tasks.push(function () {
+                    return cacheIcon(k.prefix, e.id, iconUrl(absBase, k, e)).then(function (f) {
+                        lean.iconFile = f;                   // for the palette (served file)
+                    });
+                });
                 return lean;
             });
         });
-        return out;
+
+        return runPool(tasks, 6).then(function () { return out; });
     }
 
     function read() {
@@ -94,14 +181,15 @@ function createStore(opts) {
         }
     }
 
-    /** ingest + persist; returns the lean catalog. */
-    function process(raw) {
-        const lean = ingest(raw);
-        persist(lean);
-        return lean;
+    /** ingest + persist; resolves to the lean catalog. */
+    function process(raw, appUrl) {
+        return ingest(raw, appUrl).then(function (lean) {
+            persist(lean);
+            return lean;
+        });
     }
 
-    return { KINDS: KINDS, writeIcon: writeIcon, ingest: ingest, read: read, persist: persist, process: process };
+    return { KINDS: KINDS, ingest: ingest, read: read, persist: persist, process: process };
 }
 
-module.exports = { createStore: createStore, KINDS: KINDS, MIME_EXT: MIME_EXT };
+module.exports = { createStore: createStore, KINDS: KINDS, CONTENT_TYPE_EXT: CONTENT_TYPE_EXT };
