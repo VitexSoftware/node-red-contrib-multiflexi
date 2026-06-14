@@ -90,12 +90,17 @@
                         return; // already registered
                     }
                     var label = entity.name || (k.prefix + ' #' + entity.id);
-                    var icon = 'multiflexi.svg';
+                    // Reference the icon module-prefixed ("<module>/<file>") so
+                    // resolution does not depend on def.set (which is unreliable
+                    // for types registered in this async callback); otherwise
+                    // node-red falls back to the "node-red" module and the
+                    // per-entity icon never renders.
+                    var icon = MODULE + '/multiflexi.svg';
                     if (entity.iconFile) {
                         if (iconSets[MODULE].indexOf(entity.iconFile) === -1) {
                             iconSets[MODULE].push(entity.iconFile);
                         }
-                        icon = entity.iconFile;
+                        icon = MODULE + '/' + entity.iconFile;
                     }
                     RED.nodes.registerType(type, {
                         category: k.category,

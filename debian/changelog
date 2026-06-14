@@ -1,3 +1,13 @@
+node-red-contrib-multiflexi (0.3.1) trixie; urgency=medium
+
+  * Fix per-entity palette icons not rendering: reference the icon
+    module-prefixed ("node-red-contrib-multiflexi/<file>") so resolution does
+    not depend on def.set (unreliable for types registered in the async catalog
+    callback). node-red already serves the cached files; this makes the editor
+    use them.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Sat, 14 Jun 2026 09:00:00 +0200
+
 node-red-contrib-multiflexi (0.3.0) trixie; urgency=medium
 
   * Catalog icons now come from the MultiFlexi web image endpoints
