@@ -1,3 +1,11 @@
+node-red-contrib-multiflexi (0.3.2) trixie; urgency=medium
+
+  * Give the generated per-entity nodes an edit form: the Properties tab now
+    shows a large MultiFlexi logo, the name override and the entity's metadata
+    (it was empty because dynamically-registered types had no template).
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Sat, 14 Jun 2026 12:00:00 +0200
+
 node-red-contrib-multiflexi (0.3.1) trixie; urgency=medium
 
   * Fix per-entity palette icons not rendering: reference the icon

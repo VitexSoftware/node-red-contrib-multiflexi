@@ -75,6 +75,56 @@
 
         var MODULE = 'node-red-contrib-multiflexi';
 
+        function esc(s) {
+            return String(s).replace(/[&<>"]/g, function (c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+            });
+        }
+
+        // Read-only rows for the entity's scalar fields (skip icon/name internals).
+        function infoRows(entity) {
+            var skip = { iconFile: 1, iconUrl: 1, name: 1 };
+            var rows = '';
+            Object.keys(entity).forEach(function (key) {
+                if (skip[key]) { return; }
+                var val = entity[key];
+                if (val === null || val === undefined || val === '' || typeof val === 'object') { return; }
+                if (typeof val === 'boolean') { val = val ? 'yes' : 'no'; }
+                rows += '<div class="form-row" style="margin-bottom:2px">' +
+                    '<label style="width:120px;color:#888">' + esc(key) + '</label>' +
+                    '<span>' + esc(String(val)) + '</span></div>';
+            });
+            return rows;
+        }
+
+        // Per-entity edit form: a large MultiFlexi logo, the name override and the
+        // entity's metadata. Dynamically-registered types have no static template,
+        // so without this the Properties tab renders empty.
+        function buildEditTemplate(entity, label) {
+            var img = '';
+            if (entity.iconFile) {
+                img = '<div class="form-row" style="text-align:center;margin-bottom:12px">' +
+                    '<img src="icons/' + MODULE + '/' + esc(entity.iconFile) + '" alt="" ' +
+                    'style="max-width:160px;max-height:160px;object-fit:contain" ' +
+                    'onerror="this.style.display=\'none\'"/></div>';
+            }
+            return img +
+                '<div class="form-row"><label for="node-input-name"><i class="fa fa-tag"></i> Name</label>' +
+                '<input type="text" id="node-input-name" placeholder="' + esc(label) + '"/></div>' +
+                '<hr/>' + infoRows(entity);
+        }
+
+        // node-red looks up the edit form lazily by data-template-name at edit time,
+        // so injecting one script element per dynamic type is enough.
+        function injectEditTemplate(type, html) {
+            if (document.querySelector('script[data-template-name="' + type + '"]')) { return; }
+            var tpl = document.createElement('script');
+            tpl.type = 'text/html';
+            tpl.setAttribute('data-template-name', type);
+            tpl.innerHTML = html;
+            document.body.appendChild(tpl);
+        }
+
         $.getJSON('multiflexi-catalog/list', function (catalog) {
             // node-red serves the cached icon files (statSync at request time),
             // but the editor's isIconExists() only trusts icons registered at
@@ -102,6 +152,7 @@
                         }
                         icon = MODULE + '/' + entity.iconFile;
                     }
+                    injectEditTemplate(type, buildEditTemplate(entity, label));
                     RED.nodes.registerType(type, {
                         category: k.category,
                         color: k.color,
