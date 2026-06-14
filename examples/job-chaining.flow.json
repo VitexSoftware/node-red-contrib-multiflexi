@@ -1,0 +1,68 @@
+[
+    {
+        "id": "mf-chain-tab",
+        "type": "tab",
+        "label": "MultiFlexi Job Chaining",
+        "disabled": false,
+        "info": "Demonstrates server-backed A→B job chaining via multiflexi-map.\nmultiflexi-event (job.completed) → multiflexi-map → multiflexi-runtemplate\n\nThe multiflexi-map node saves an event_rule to the MultiFlexi server on deploy.\nChaining then happens automatically server-side via eventrules.php."
+    },
+    {
+        "id": "mf-chain-config",
+        "type": "multiflexi-config",
+        "name": "MultiFlexi (local)",
+        "baseUrl": "http://localhost/api/VitexSoftware/MultiFlexi/1.0.0"
+    },
+    {
+        "id": "mf-chain-event",
+        "type": "multiflexi-event",
+        "name": "Job A completed",
+        "path": "/multiflexi-event",
+        "eventType": "job.completed",
+        "evidence": "",
+        "operation": "any",
+        "appUuid": "",
+        "token": "",
+        "x": 160,
+        "y": 160,
+        "wires": [["mf-chain-map"]]
+    },
+    {
+        "id": "mf-chain-map",
+        "type": "multiflexi-map",
+        "name": "Map invoices → importer",
+        "server": "mf-chain-config",
+        "sourceRuntemplateId": "",
+        "targetRuntemplateId": "",
+        "sourceAppId": "",
+        "targetAppId": "",
+        "ruleId": "",
+        "envMapping": "{\"INPUT_FILE\":\"@file:invoices\",\"MIN_AMOUNT\":\"invoices.total\"}",
+        "localMode": false,
+        "x": 430,
+        "y": 160,
+        "wires": [["mf-chain-runtemplate"]]
+    },
+    {
+        "id": "mf-chain-runtemplate",
+        "type": "multiflexi-runtemplate",
+        "name": "Importer (RunTemplate B)",
+        "server": "mf-chain-config",
+        "runtemplateId": "",
+        "executor": "",
+        "scheduled": "now",
+        "env": "[]",
+        "x": 700,
+        "y": 160,
+        "wires": [["mf-chain-debug"]]
+    },
+    {
+        "id": "mf-chain-debug",
+        "type": "debug",
+        "name": "chained job result",
+        "active": true,
+        "complete": "payload",
+        "x": 960,
+        "y": 160,
+        "wires": []
+    }
+]

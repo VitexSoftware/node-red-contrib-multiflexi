@@ -1,0 +1,374 @@
+<script type="text/javascript">
+    RED.nodes.registerType('multiflexi-map', {
+        category: 'MultiFlexi',
+        color: '#8e44ad',
+        defaults: {
+            name:                 { value: '' },
+            server:               { value: '', type: 'multiflexi-config', required: true },
+            sourceRuntemplateId:  { value: '' },
+            targetRuntemplateId:  { value: '' },
+            sourceAppId:          { value: '' },
+            targetAppId:          { value: '' },
+            ruleId:               { value: '' },
+            envMapping:           { value: '{}' },
+            localMode:            { value: false },
+        },
+        inputs: 1,
+        outputs: 1,
+        icon: 'multiflexi.svg',
+        label: function () {
+            return this.name || ('Map RT#' + (this.sourceRuntemplateId || '?') + ' → #' + (this.targetRuntemplateId || '?'));
+        },
+        labelStyle: function () {
+            return this.name ? 'node_label_italic' : '';
+        },
+
+        oneditprepare: function () {
+            var node = this;
+
+            // ----------------------------------------------------------------
+            // Helpers
+            // ----------------------------------------------------------------
+
+            function getServerId() {
+                return $('#node-input-server').val();
+            }
+
+            /** Populate a <select> from an array of { id, name } objects. */
+            function fillSelect(sel, items, currentVal) {
+                sel.empty();
+                sel.append($('<option>', { value: '', text: '— select —' }));
+                (items || []).forEach(function (rt) {
+                    var label = (rt.name || rt.app_name || '') + ' (#' + rt.id + ')';
+                    var opt = $('<option>', { value: rt.id, text: label });
+                    if (String(rt.id) === String(currentVal)) {
+                        opt.prop('selected', true);
+                    }
+                    sel.append(opt);
+                });
+            }
+
+            // ----------------------------------------------------------------
+            // Load runtemplates into source/target dropdowns
+            // ----------------------------------------------------------------
+
+            function loadRuntemplates() {
+                var serverId = getServerId();
+                if (!serverId) { return; }
+                $.getJSON('multiflexi/map/runtemplates?server=' + encodeURIComponent(serverId), function (data) {
+                    var list = Array.isArray(data) ? data : (data.runtemplates || []);
+                    fillSelect($('#node-input-sourceRuntemplateId'), list, node.sourceRuntemplateId);
+                    fillSelect($('#node-input-targetRuntemplateId'), list, node.targetRuntemplateId);
+
+                    // Stash the list for app-id lookup
+                    node._runtemplateList = list;
+
+                    // If both sides already have a selection, refresh the mapping table
+                    if (node.sourceRuntemplateId && node.targetRuntemplateId) {
+                        refreshMappingTable();
+                    }
+                }).fail(function () {
+                    // server not reachable yet — leave dropdowns empty
+                });
+            }
+
+            // ----------------------------------------------------------------
+            // Find app_id for a runtemplate id from the cached list
+            // ----------------------------------------------------------------
+
+            function appIdFor(rtId) {
+                var list = node._runtemplateList || [];
+                for (var i = 0; i < list.length; i++) {
+                    if (String(list[i].id) === String(rtId)) {
+                        return list[i].app_id || list[i].application_id || '';
+                    }
+                }
+                return '';
+            }
+
+            // ----------------------------------------------------------------
+            // Build the field-mapping table
+            // ----------------------------------------------------------------
+
+            function refreshMappingTable() {
+                var serverId = getServerId();
+                var srcRtId  = $('#node-input-sourceRuntemplateId').val();
+                var tgtRtId  = $('#node-input-targetRuntemplateId').val();
+                if (!serverId || !srcRtId || !tgtRtId) { return; }
+
+                var srcAppId = $('#node-input-sourceAppId').val() || appIdFor(srcRtId);
+                var tgtAppId = $('#node-input-targetAppId').val() || appIdFor(tgtRtId);
+
+                if (!srcAppId || !tgtAppId) {
+                    $('#mf-map-table-wrap').html('<p style="color:#888">No app linked to the selected run-template(s). Mapping unavailable.</p>');
+                    return;
+                }
+
+                var qs = '?server=' + encodeURIComponent(serverId);
+
+                $.when(
+                    $.getJSON('multiflexi/map/app/' + encodeURIComponent(srcAppId) + '/produces' + qs),
+                    $.getJSON('multiflexi/map/app/' + encodeURIComponent(tgtAppId) + '/consumes' + qs)
+                ).done(function (prodRes, consRes) {
+                    var produces   = prodRes[0] || {};
+                    var consData   = consRes[0] || {};
+                    var consumes   = consData.consumes   || {};
+                    var environment = consData.environment || {};
+
+                    // Build left-column options: each produces entry may have a
+                    // "whole file" option plus its declared fields.
+                    var leftOptions = [{ value: '', label: '— none —' }];
+                    Object.keys(produces).forEach(function (pName) {
+                        var p = produces[pName] || {};
+                        // Whole-file option
+                        leftOptions.push({
+                            value: '@file:' + pName,
+                            label: pName + ' (whole file)',
+                        });
+                        // Per-field options
+                        var fields = p.fields || {};
+                        Object.keys(fields).forEach(function (fName) {
+                            leftOptions.push({
+                                value: pName + '.' + fName,
+                                label: pName + '.' + fName,
+                            });
+                        });
+                    });
+
+                    // Right-column: consumes targets + environment keys
+                    var rightKeys = {};
+                    Object.keys(consumes).forEach(function (k) {
+                        var c = consumes[k] || {};
+                        rightKeys[c.target || k] = k + (c.target ? ' (→ ' + c.target + ')' : '');
+                    });
+                    Object.keys(environment).forEach(function (k) {
+                        if (!rightKeys[k]) {
+                            rightKeys[k] = k;
+                        }
+                    });
+
+                    // Current mapping
+                    var currentMapping = {};
+                    try {
+                        currentMapping = JSON.parse($('#node-input-envMapping').val() || '{}') || {};
+                    } catch (e) {
+                        currentMapping = {};
+                    }
+
+                    // Render table
+                    var wrap = $('#mf-map-table-wrap');
+                    wrap.empty();
+
+                    if (Object.keys(rightKeys).length === 0) {
+                        wrap.html('<p style="color:#888">Target app declares no consumes or environment keys.</p>');
+                        return;
+                    }
+
+                    var table = $('<table style="width:100%;border-collapse:collapse"/>');
+                    var thead = $('<thead><tr>' +
+                        '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">Target env key (B)</th>' +
+                        '<th style="text-align:left;padding:4px 6px;border-bottom:1px solid #ddd">Source selector (A)</th>' +
+                        '</tr></thead>');
+                    table.append(thead);
+
+                    var tbody = $('<tbody/>');
+
+                    Object.keys(rightKeys).forEach(function (envKey) {
+                        var label = rightKeys[envKey];
+                        var currentSel = currentMapping[envKey] || '';
+
+                        var select = $('<select class="mf-map-row-select" style="width:100%"/>');
+                        select.data('env-key', envKey);
+
+                        leftOptions.forEach(function (opt) {
+                            var o = $('<option>', { value: opt.value, text: opt.label });
+                            if (opt.value === currentSel) { o.prop('selected', true); }
+                            select.append(o);
+                        });
+
+                        var tr = $('<tr/>');
+                        $('<td style="padding:4px 6px;vertical-align:middle"/>').text(label).appendTo(tr);
+                        $('<td style="padding:4px 6px"/>').append(select).appendTo(tr);
+                        tbody.append(tr);
+                    });
+
+                    table.append(tbody);
+                    wrap.append(table);
+
+                }).fail(function () {
+                    $('#mf-map-table-wrap').html('<p style="color:#c0392b">Failed to load app contract from server.</p>');
+                });
+            }
+
+            // ----------------------------------------------------------------
+            // Wire events
+            // ----------------------------------------------------------------
+
+            // Reload runtemplates when the server config changes.
+            $('#node-input-server').on('change', function () {
+                loadRuntemplates();
+            });
+
+            // Refresh mapping table when either runtemplate changes.
+            $('#node-input-sourceRuntemplateId, #node-input-targetRuntemplateId').on('change', function () {
+                refreshMappingTable();
+            });
+
+            // Initial load
+            loadRuntemplates();
+
+            // Local-mode checkbox: show/hide status hint
+            $('#node-input-localMode').on('change', function () {
+                var checked = $(this).is(':checked');
+                $('#mf-map-local-hint').toggle(checked);
+                $('#mf-map-server-hint').toggle(!checked);
+            }).trigger('change');
+        },
+
+        oneditsave: function () {
+            var node = this;
+            var mapping = {};
+
+            $('#mf-map-table-wrap .mf-map-row-select').each(function () {
+                var key = $(this).data('env-key');
+                var val = $(this).val();
+                if (key && val) {
+                    mapping[key] = val;
+                }
+            });
+
+            $('#node-input-envMapping').val(JSON.stringify(mapping));
+
+            // Store app IDs so the table can be re-populated without hitting
+            // the API for a runtemplate→app lookup on re-open.
+            var list = node._runtemplateList || [];
+            var srcId = $('#node-input-sourceRuntemplateId').val();
+            var tgtId = $('#node-input-targetRuntemplateId').val();
+
+            function findAppId(rtId) {
+                for (var i = 0; i < list.length; i++) {
+                    if (String(list[i].id) === String(rtId)) {
+                        return list[i].app_id || list[i].application_id || '';
+                    }
+                }
+                return '';
+            }
+
+            $('#node-input-sourceAppId').val(findAppId(srcId));
+            $('#node-input-targetAppId').val(findAppId(tgtId));
+
+            // ----------------------------------------------------------------
+            // Persist the event_rule on the MultiFlexi server.
+            // ----------------------------------------------------------------
+            var serverId   = $('#node-input-server').val();
+            var ruleId     = $('#node-input-ruleId').val();
+            var localMode  = $('#node-input-localMode').is(':checked');
+
+            if (!localMode && serverId && srcId && tgtId) {
+                var body = {
+                    server:                serverId,
+                    source_runtemplate_id: srcId,
+                    target_runtemplate_id: tgtId,
+                    env_mapping:           mapping,
+                };
+
+                var url    = ruleId ? ('multiflexi/map/rule/' + encodeURIComponent(ruleId)) : 'multiflexi/map/rule';
+                var method = ruleId ? 'PUT' : 'POST';
+
+                $.ajax({
+                    url: url,
+                    method: method,
+                    contentType: 'application/json',
+                    data: JSON.stringify(body),
+                    success: function (resp) {
+                        if (resp && resp.id) {
+                            $('#node-input-ruleId').val(resp.id);
+                        }
+                    },
+                }).fail(function (xhr) {
+                    console.warn('multiflexi-map: failed to save rule to server:', xhr.responseText);
+                });
+            }
+        },
+    });
+</script>
+
+<script type="text/html" data-template-name="multiflexi-map">
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Invoice → Importer" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-server"><i class="fa fa-server"></i> Server</label>
+        <input type="text" id="node-input-server" />
+    </div>
+    <div class="form-row">
+        <label for="node-input-sourceRuntemplateId"><i class="fa fa-play-circle"></i> Source RT (A)</label>
+        <select id="node-input-sourceRuntemplateId" style="width:70%">
+            <option value="">— select —</option>
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="node-input-targetRuntemplateId"><i class="fa fa-flag-checkered"></i> Target RT (B)</label>
+        <select id="node-input-targetRuntemplateId" style="width:70%">
+            <option value="">— select —</option>
+        </select>
+    </div>
+
+    <div class="form-row">
+        <label><i class="fa fa-random"></i> Field mapping</label>
+        <div id="mf-map-table-wrap" style="margin-top:6px;padding:6px;border:1px solid #ddd;border-radius:4px;min-height:40px">
+            <span style="color:#aaa">Select source and target run-templates to load the mapping table.</span>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <label for="node-input-localMode"><i class="fa fa-laptop"></i> Local transform</label>
+        <input type="checkbox" id="node-input-localMode" style="width:auto;margin-left:0" />
+        <span style="margin-left:6px;color:#888;font-size:0.9em">Apply mapping locally in Node-RED (no server rule saved)</span>
+    </div>
+    <div id="mf-map-local-hint" class="form-tips" style="display:none">
+        In local mode the node resolves each selector against <code>msg.payload</code> and writes the results to <code>msg.payload.env</code> for a downstream <b>multiflexi-runtemplate</b> node. The <code>@file:</code> selectors are passed through as-is.
+    </div>
+    <div id="mf-map-server-hint" class="form-tips">
+        In server mode the node saves an <code>event_rule</code> to the MultiFlexi server on deploy and is passive at runtime — chaining is handled server-side by <code>eventrules.php</code>.
+    </div>
+
+    <!-- hidden fields persisted in the node config -->
+    <input type="hidden" id="node-input-envMapping" />
+    <input type="hidden" id="node-input-ruleId" />
+    <input type="hidden" id="node-input-sourceAppId" />
+    <input type="hidden" id="node-input-targetAppId" />
+</script>
+
+<script type="text/html" data-help-name="multiflexi-map">
+    <p>Defines an A→B job-chaining binding: the output produced by RunTemplate A
+    is mapped to environment inputs of RunTemplate B.</p>
+
+    <h3>Server mode (default)</h3>
+    <p>On deploy the node saves an <code>event_rule</code> row to MultiFlexi
+    (via <code>POST /eventrule/</code> or <code>PUT /eventrule/{id}.json</code>).
+    Chaining is then performed automatically by the server-side
+    <code>eventrules.php</code> processor.  The node itself is a passive
+    pass-through at runtime.</p>
+
+    <h3>Local transform mode</h3>
+    <p>When <b>Local transform</b> is checked, no server rule is created.
+    Instead, the node resolves the field mapping against <code>msg.payload</code>
+    and writes the results to <code>msg.payload.env</code>, ready for a
+    downstream <b>multiflexi-runtemplate</b> node.</p>
+
+    <h3>Field mapping table</h3>
+    <p>Select source and target run-templates, then pair each target
+    environment key (B) to a source selector (A):</p>
+    <ul>
+        <li><b>dot-path</b> — e.g. <code>invoices.total</code> — extracts a scalar from A's produced JSON.</li>
+        <li><b>@file:&lt;name&gt;</b> — passes the path of the produced file as the env value (whole-file delivery).</li>
+    </ul>
+
+    <h3>Input / Output</h3>
+    <dl class="message-properties">
+        <dt>msg <span class="property-type">any</span></dt>
+        <dd>Passed through unchanged (server mode) or with <code>msg.payload.env</code> populated (local mode).</dd>
+    </dl>
+</script>

@@ -1,6 +1,6 @@
 {
   "name": "node-red-contrib-multiflexi",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Node-RED nodes for visually orchestrating MultiFlexi: receive webhook/job events and schedule RunTemplates",
   "keywords": [
     "node-red",
@@ -28,7 +28,8 @@
       "multiflexi-event": "multiflexi/multiflexi-event.js",
       "multiflexi-runtemplate": "multiflexi/multiflexi-runtemplate.js",
       "multiflexi-artifact": "multiflexi/multiflexi-artifact.js",
-      "multiflexi-catalog": "multiflexi/multiflexi-catalog.js"
+      "multiflexi-catalog": "multiflexi/multiflexi-catalog.js",
+      "multiflexi-map": "multiflexi/multiflexi-map.js"
     }
   },
   "dependencies": {
