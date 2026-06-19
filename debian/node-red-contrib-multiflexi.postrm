@@ -1,14 +1,6 @@
 #!/bin/sh
 set -e
 
-SYMLINK=/var/lib/node-red/.node-red/node_modules/node-red-contrib-multiflexi
-
-case "$1" in
-    remove|purge)
-        rm -f "$SYMLINK"
-        ;;
-esac
-
 case "$1" in
     purge)
         rm -rf /var/lib/node-red-contrib-multiflexi

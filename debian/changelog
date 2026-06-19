@@ -1,3 +1,12 @@
+node-red-contrib-multiflexi (0.3.7) trixie; urgency=medium
+
+  * Install directly to /usr/share/node-red/node_modules/ — node-red scans
+    that directory for palette nodes automatically; no userDir symlink needed.
+    The only bundled deps (body-parser, cookie-parser) cannot shadow node-red
+    internals since node-red itself is only a devDependency.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Thu, 19 Jun 2026 15:00:00 +0200
+
 node-red-contrib-multiflexi (0.3.6) trixie; urgency=medium
 
   * Restore NODE_PATH systemd drop-in (node-red.service.d/node-red-nodepath.conf)

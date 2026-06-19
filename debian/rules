@@ -2,7 +2,7 @@
 export DH_VERBOSE = 1
 
 PKG = node-red-contrib-multiflexi
-DEST = debian/$(PKG)/usr/share/nodejs/$(PKG)
+DEST = debian/$(PKG)/usr/share/node-red/node_modules/$(PKG)
 VARICONS = debian/$(PKG)/var/lib/$(PKG)/icons
 
 %:
