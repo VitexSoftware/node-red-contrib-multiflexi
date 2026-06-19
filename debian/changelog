@@ -1,3 +1,16 @@
+node-red-contrib-multiflexi (0.3.6) trixie; urgency=medium
+
+  * Restore NODE_PATH systemd drop-in (node-red.service.d/node-red-nodepath.conf)
+    required for node-red itself to locate @node-red/* packages under
+    /usr/share/node-red at startup.
+  * Install contrib to /usr/share/nodejs/ and create userDir symlink in postinst
+    (/var/lib/node-red/.node-red/node_modules/node-red-contrib-multiflexi)
+    so node-red palette loader discovers the nodes without any NODE_PATH tricks.
+  * postrm: remove the userDir symlink on package removal.
+  * Bundle body-parser and cookie-parser node_modules (the only runtime deps).
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Thu, 19 Jun 2026 14:00:00 +0200
+
 node-red-contrib-multiflexi (0.3.5) trixie; urgency=medium
 
   * Do not bundle node_modules/: all runtime deps (node-red, @node-red/*)

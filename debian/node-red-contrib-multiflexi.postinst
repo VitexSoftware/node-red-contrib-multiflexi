@@ -1,6 +1,10 @@
 #!/bin/sh
 set -e
 
+USERDIR=/var/lib/node-red/.node-red
+SYMLINK="$USERDIR/node_modules/node-red-contrib-multiflexi"
+TARGET=/usr/share/nodejs/node-red-contrib-multiflexi
+
 case "$1" in
     configure)
         # Make the runtime icon cache writable by the node-red service user.
@@ -10,7 +14,14 @@ case "$1" in
             chown -R "$NRUSER" /var/lib/node-red-contrib-multiflexi/icons 2>/dev/null || true
         fi
 
-        # Restart node-red so it picks up the newly installed palette nodes.
+        # Create symlink so node-red discovers the palette nodes from its userDir.
+        if [ -d "$USERDIR" ]; then
+            install -d "$USERDIR/node_modules"
+            ln -sfn "$TARGET" "$SYMLINK"
+        fi
+
+        # Reload systemd so the NODE_PATH drop-in takes effect, then restart.
+        systemctl daemon-reload 2>/dev/null || true
         if systemctl is-enabled node-red >/dev/null 2>&1; then
             systemctl try-restart node-red 2>/dev/null || true
         fi
