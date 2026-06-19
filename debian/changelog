@@ -1,3 +1,12 @@
+node-red-contrib-multiflexi (0.3.5) trixie; urgency=medium
+
+  * Do not bundle node_modules/: all runtime deps (node-red, @node-red/*)
+    are already present as deb packages under /usr/share/node-red/node_modules/.
+    Bundling them caused node-red to crash with MODULE_NOT_FOUND on startup
+    because the nested copies shadowed node-red's own scoped packages.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Thu, 19 Jun 2026 11:00:00 +0200
+
 node-red-contrib-multiflexi (0.3.4) trixie; urgency=medium
 
   * Install module files directly to /usr/share/node-red/node_modules/ so
