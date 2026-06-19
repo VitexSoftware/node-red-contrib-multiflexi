@@ -10,7 +10,7 @@ Vcs-Browser: https://github.com/Vitexus/node-red-contrib-multiflexi
 
 Package: node-red-contrib-multiflexi
 Architecture: all
-Depends: ${misc:Depends}, node-red (>= 4.0), node-body-parser, node-cookie-parser
+Depends: ${misc:Depends}, node-red (>= 4.0)
 Description: Node-RED nodes for visual MultiFlexi process orchestration
  Manage relationships between MultiFlexi processes visually in Node-RED.
  The multiflexi-eventor daemon forwards webhook changes and finished jobs
