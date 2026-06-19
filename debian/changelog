@@ -1,3 +1,20 @@
+node-red-contrib-multiflexi (0.3.4) trixie; urgency=medium
+
+  * Install module files directly to /usr/share/node-red/node_modules/ so
+    node-red discovers the palette nodes without any NODE_PATH tricks.
+    Drop the now-redundant systemd drop-in (10-multiflexi.conf).
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Thu, 19 Jun 2026 10:00:00 +0200
+
+node-red-contrib-multiflexi (0.3.3) trixie; urgency=medium
+
+  * Reliably populate the per-entity edit form: build it in oneditprepare (so it
+    cannot be defeated by template-lookup timing) in addition to the injected
+    template. Use OpenAPI-schema field labels (Company / RunTemplate /
+    Credential) for the read-only metadata rows.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Sat, 14 Jun 2026 13:30:00 +0200
+
 node-red-contrib-multiflexi (0.3.2) trixie; urgency=medium
 
   * Give the generated per-entity nodes an edit form: the Properties tab now

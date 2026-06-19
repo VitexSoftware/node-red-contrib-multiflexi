@@ -10,8 +10,7 @@ case "$1" in
             chown -R "$NRUSER" /var/lib/node-red-contrib-multiflexi/icons 2>/dev/null || true
         fi
 
-        # Apply the NODE_PATH drop-in and (re)start node-red so it picks it up.
-        systemctl daemon-reload 2>/dev/null || true
+        # Restart node-red so it picks up the newly installed palette nodes.
         if systemctl is-enabled node-red >/dev/null 2>&1; then
             systemctl try-restart node-red 2>/dev/null || true
         fi

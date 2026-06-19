@@ -2,7 +2,7 @@
 export DH_VERBOSE = 1
 
 PKG = node-red-contrib-multiflexi
-DEST = debian/$(PKG)/usr/share/nodejs/$(PKG)
+DEST = debian/$(PKG)/usr/share/node-red/node_modules/$(PKG)
 VARICONS = debian/$(PKG)/var/lib/$(PKG)/icons
 
 %:
@@ -27,11 +27,6 @@ override_dh_auto_install:
 		install -d $(DEST)/node_modules && \
 		cp -a node_modules/. $(DEST)/node_modules/ \
 		|| true
-	# systemd drop-in so the separately-packaged node-red service starts with
-	# /usr/share/node-red (and /usr/share/nodejs) on NODE_PATH.
-	install -d debian/$(PKG)/etc/systemd/system/node-red.service.d
-	install -m 644 debian/node-red-nodepath.conf \
-		debian/$(PKG)/etc/systemd/system/node-red.service.d/10-multiflexi.conf
 	install -d debian/$(PKG)/usr/share/icons/hicolor/scalable/apps
 	install -m 644 node-red-contrib-multiflexi.svg \
 		debian/$(PKG)/usr/share/icons/hicolor/scalable/apps/

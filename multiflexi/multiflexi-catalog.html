@@ -81,6 +81,17 @@
             });
         }
 
+        // Human labels for the entity fields the eventor sends (names follow the
+        // MultiFlexi OpenAPI schema: Company / RunTemplate / Credential).
+        var LABELS = {
+            id: 'ID', slug: 'Slug', enabled: 'Enabled', code: 'Code', ic: 'IČ',
+            email: 'E-mail', customer: 'Customer',
+            company_id: 'Company', app_id: 'Application', app_uuid: 'App UUID',
+            executor: 'Executor', interv: 'Interval', delay: 'Delay (s)',
+            active: 'Active', cron: 'Cron',
+            credential_type_id: 'Credential type', type_name: 'Type', type: 'Type',
+        };
+
         // Read-only rows for the entity's scalar fields (skip icon/name internals).
         function infoRows(entity) {
             var skip = { iconFile: 1, iconUrl: 1, name: 1 };
@@ -91,7 +102,7 @@
                 if (val === null || val === undefined || val === '' || typeof val === 'object') { return; }
                 if (typeof val === 'boolean') { val = val ? 'yes' : 'no'; }
                 rows += '<div class="form-row" style="margin-bottom:2px">' +
-                    '<label style="width:120px;color:#888">' + esc(key) + '</label>' +
+                    '<label style="width:130px;color:#888">' + esc(LABELS[key] || key) + '</label>' +
                     '<span>' + esc(String(val)) + '</span></div>';
             });
             return rows;
@@ -152,6 +163,9 @@
                         }
                         icon = MODULE + '/' + entity.iconFile;
                     }
+                    // Provide the edit form two ways: an injected template (the
+                    // node-red-native path) and, as a guarantee against template-
+                    // lookup timing, build it in oneditprepare if the form is empty.
                     injectEditTemplate(type, buildEditTemplate(entity, label));
                     RED.nodes.registerType(type, {
                         category: k.category,
@@ -162,6 +176,15 @@
                         inputs: 1,
                         outputs: 1,
                         label: function () { return this.name || label; },
+                        oneditprepare: (function (ent, lbl) {
+                            return function () {
+                                var form = $('#dialog-form');
+                                if (form.find('#node-input-name').length === 0) {
+                                    form.html(buildEditTemplate(ent, lbl));
+                                    form.find('#node-input-name').val(this.name || '');
+                                }
+                            };
+                        })(entity, label),
                     });
                 });
             });
