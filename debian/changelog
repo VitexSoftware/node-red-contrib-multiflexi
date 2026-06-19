@@ -1,3 +1,12 @@
+node-red-contrib-multiflexi (0.3.8) trixie; urgency=medium
+
+  * Drop npm install / bundled node_modules: body-parser and cookie-parser
+    are already bundled by node-red itself and available via NODE_PATH.
+    Declare them as proper deb Depends instead.
+  * Remove nodejs/npm from Build-Depends.
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Thu, 19 Jun 2026 16:30:00 +0200
+
 node-red-contrib-multiflexi (0.3.7) trixie; urgency=medium
 
   * Install directly to /usr/share/node-red/node_modules/ — node-red scans
