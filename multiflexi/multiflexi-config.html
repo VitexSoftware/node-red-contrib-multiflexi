@@ -12,6 +12,16 @@
         label: function () {
             return this.name || this.baseUrl || 'MultiFlexi';
         },
+        oneditopen: function () {
+            var node = this;
+            if (!node.baseUrl) {
+                $.getJSON('multiflexi/default-url', function (data) {
+                    if (data && data.baseUrl) {
+                        $('#node-config-input-baseUrl').val(data.baseUrl);
+                    }
+                });
+            }
+        },
     });
 </script>
 
@@ -23,7 +33,7 @@
     <div class="form-row">
         <label for="node-config-input-baseUrl"><i class="fa fa-globe"></i> API Base URL</label>
         <input type="text" id="node-config-input-baseUrl"
-               placeholder="http://host/api/VitexSoftware/MultiFlexi/1.0.0" />
+               placeholder="http://host/multiflexi/api/VitexSoftware/MultiFlexi/1.0.0" />
     </div>
     <div class="form-row">
         <label for="node-config-input-username"><i class="fa fa-user"></i> Username</label>
@@ -38,6 +48,8 @@
 <script type="text/html" data-help-name="multiflexi-config">
     <p>Connection to a MultiFlexi REST API instance.</p>
     <p>The <b>API Base URL</b> must include the version path, for example
-    <code>http://multiflexi.example.com/api/VitexSoftware/MultiFlexi/1.0.0</code>.
+    <code>http://multiflexi.example.com/multiflexi/api/VitexSoftware/MultiFlexi/1.0.0</code>.
     Authentication uses HTTP Basic auth with the configured username/password.</p>
+    <p>When the <code>MULTIFLEXI_URL</code> environment variable is set on the Node-RED server,
+    the URL is pre-populated automatically when you open a new config node.</p>
 </script>
