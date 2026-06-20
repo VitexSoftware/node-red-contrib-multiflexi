@@ -18,7 +18,7 @@ const http = require('http');
 const https = require('https');
 
 const BASE_URL = (process.env.MULTIFLEXI_URL || 'http://localhost/multiflexi/api').replace(/\/+$/, '');
-const PROBE_URL = BASE_URL + '/VitexSoftware/MultiFlexi/1.0.0/servers/';
+const PROBE_URL = BASE_URL + '/VitexSoftware/MultiFlexi/1.0.0/apps.json';
 
 function authenticate(username, password) {
     return new Promise(function (resolve) {
