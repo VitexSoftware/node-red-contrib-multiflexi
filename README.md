@@ -1,6 +1,7 @@
 # node-red-contrib-multiflexi
 
 ![node-red-contrib-multiflexi logo](node-red-contrib-multiflexi.svg?raw=true)
+![Packaging: deb](https://img.shields.io/badge/packaging-.deb-red?logo=debian&logoColor=white)
 
 Node-RED nodes for visually orchestrating [MultiFlexi](https://multiflexi.eu/)
 processes. Receive webhook and job events from the MultiFlexi event processor
