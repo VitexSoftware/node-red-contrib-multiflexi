@@ -56,8 +56,20 @@ function authenticate(username, password) {
     });
 }
 
+// node-red's bearerStrategy validates a session token via Tokens.get(), then
+// looks up the full user object via Users.get(username) — which only
+// consults this `users` list/function, never `authenticate()` again. A
+// static (empty) list makes every bearer-token request 401 even right after
+// a successful login, since the dynamically-authenticated username was never
+// added to it. Returning a synthetic full-permission user for any username
+// is safe here because authenticate() above already gated on a real
+// MultiFlexi credential check.
+function getUser(username) {
+    return Promise.resolve({ username: username, permissions: '*' });
+}
+
 module.exports = {
     type: 'credentials',
-    users: [],
+    users: getUser,
     authenticate: authenticate,
 };

@@ -266,10 +266,17 @@
 
             if (!localMode && serverId && srcId && tgtId) {
                 var body = {
-                    server:                serverId,
-                    source_runtemplate_id: srcId,
-                    target_runtemplate_id: tgtId,
-                    env_mapping:           mapping,
+                    server:                 serverId,
+                    // Field names must match the event_rule DB columns
+                    // (runtemplate_source_id, runtemplate_id) — the source
+                    // RunTemplate triggers the rule, the target RunTemplate
+                    // is what event_rule.runtemplate_id already means for
+                    // webhook-triggered rules. env_mapping is a TEXT column
+                    // decoded with json_decode() server-side, so it must be
+                    // sent as a JSON string, not a nested object.
+                    runtemplate_source_id: srcId,
+                    runtemplate_id:         tgtId,
+                    env_mapping:            JSON.stringify(mapping),
                 };
 
                 var url    = ruleId ? ('multiflexi/map/rule/' + encodeURIComponent(ruleId)) : 'multiflexi/map/rule';

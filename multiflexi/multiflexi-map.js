@@ -238,7 +238,12 @@ module.exports = function (RED) {
     /**
      * POST /multiflexi/map/rule
      * Create a new event_rule on the MultiFlexi server.
-     * Body must include: server, source_runtemplate_id, target_runtemplate_id, env_mapping
+     * Body must include: server, runtemplate_source_id, runtemplate_id, env_mapping
+     *
+     * Field names must match the event_rule table columns exactly —
+     * EventruleApi::setEventRuleById() writes whatever keys are in the
+     * request body verbatim via setDataValue(). env_mapping is a TEXT
+     * column (json_decode()'d on read), so it must travel as a JSON string.
      */
     RED.httpAdmin.post(
         '/multiflexi/map/rule',
@@ -251,9 +256,9 @@ module.exports = function (RED) {
                 return res.status(400).json({ error: 'No server configured' });
             }
             var ruleBody = {
-                source_runtemplate_id: body.source_runtemplate_id,
-                target_runtemplate_id: body.target_runtemplate_id,
-                env_mapping: body.env_mapping || {},
+                runtemplate_source_id: body.runtemplate_source_id,
+                runtemplate_id: body.runtemplate_id,
+                env_mapping: typeof body.env_mapping === 'string' ? body.env_mapping : JSON.stringify(body.env_mapping || {}),
             };
             apiRequest(serverNode, 'POST', '/eventrule/', ruleBody)
                 .then(function (data) { res.json(data); })
@@ -276,9 +281,9 @@ module.exports = function (RED) {
                 return res.status(400).json({ error: 'No server configured' });
             }
             var ruleBody = {
-                source_runtemplate_id: body.source_runtemplate_id,
-                target_runtemplate_id: body.target_runtemplate_id,
-                env_mapping: body.env_mapping || {},
+                runtemplate_source_id: body.runtemplate_source_id,
+                runtemplate_id: body.runtemplate_id,
+                env_mapping: typeof body.env_mapping === 'string' ? body.env_mapping : JSON.stringify(body.env_mapping || {}),
             };
             apiRequest(serverNode, 'PUT', '/eventrule/' + encodeURIComponent(req.params.id) + '.json', ruleBody)
                 .then(function (data) { res.json(data); })
