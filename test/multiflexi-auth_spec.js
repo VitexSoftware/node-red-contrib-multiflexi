@@ -4,20 +4,20 @@ require('should');
 var http = require('http');
 
 describe('multiflexi-auth.js', function () {
-    var server, base, loginOutcome, authModule, requestedPaths;
+    var server, base, loginOutcome, authModule, requestedRequests;
 
     beforeEach(function (done) {
         loginOutcome = 'success'; // 'success' | 'badpassword' | 'error' | 'suffix-required'
-        requestedPaths = [];
+        requestedRequests = [];
         server = http.createServer(function (req, res) {
-            requestedPaths.push(req.url.split('?')[0]);
+            requestedRequests.push({ method: req.method, path: req.url.split('?')[0] });
 
             if (loginOutcome === 'suffix-required') {
-                if (req.url.split('?')[0].endsWith('.json')) {
+                if (req.method === 'POST' && req.url.split('?')[0].endsWith('.json')) {
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ token: 'abc123' }));
                 } else {
-                    res.writeHead(404);
+                    res.writeHead(405);
                     res.end();
                 }
 
@@ -94,14 +94,16 @@ describe('multiflexi-auth.js', function () {
         });
     });
 
-    it('retries with a .json suffix when the bare login path 404s (backend routing convention differs)', function () {
+    it('retries with POST + .json suffix when GET + bare path is unsupported (multiflexi-server convention)', function () {
         loginOutcome = 'suffix-required';
 
         return authModule.authenticate('erin', 'correct-password').then(function (user) {
             user.should.eql({ username: 'erin', permissions: 'read' });
-            requestedPaths.length.should.equal(2);
-            requestedPaths[0].should.not.endWith('.json');
-            requestedPaths[1].should.endWith('.json');
+            requestedRequests.length.should.equal(2);
+            requestedRequests[0].method.should.equal('GET');
+            requestedRequests[0].path.should.not.endWith('.json');
+            requestedRequests[1].method.should.equal('POST');
+            requestedRequests[1].path.should.endWith('.json');
         });
     });
 });

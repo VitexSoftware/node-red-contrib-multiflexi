@@ -39,7 +39,7 @@ const SESSION_TTL_MS = 5 * 60 * 1000;
 // authenticate() call below. getUser() never fabricates an entry.
 const authenticatedSessions = new Map();
 
-function tryLogin(loginUrl, username, password) {
+function tryLogin(method, loginUrl, username, password) {
     return new Promise(function (resolve) {
         let parsed;
         try {
@@ -54,7 +54,7 @@ function tryLogin(loginUrl, username, password) {
             hostname: parsed.hostname,
             port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
             path: parsed.pathname + parsed.search,
-            method: 'GET',
+            method: method,
             headers: { Accept: 'application/json' },
             timeout: 5000,
         };
@@ -64,12 +64,13 @@ function tryLogin(loginUrl, username, password) {
             let data = '';
             res.on('data', function (chunk) { data += chunk; });
             res.on('end', function () {
-                // 404/405 means this URL shape doesn't match the deployed
-                // API's routing convention (some backends require a format
-                // suffix like /login.json, others use the bare path) -
+                // 404/405/501 means this method+URL shape doesn't match the
+                // deployed API's routing/implementation convention (e.g.
+                // multiflexi-api only implements bare GET /login,
+                // multiflexi-server only implements POST /login.json) -
                 // that's worth retrying with the other shape, not a login
                 // failure.
-                if (res.statusCode === 404 || res.statusCode === 405) {
+                if (res.statusCode === 404 || res.statusCode === 405 || res.statusCode === 501) {
                     resolve({ ok: false, retryable: true });
                     return;
                 }
@@ -86,9 +87,14 @@ function tryLogin(loginUrl, username, password) {
     });
 }
 
+// Different MultiFlexi API backends implement login differently:
+// multiflexi-api only has a bare GET /login handler, multiflexi-server
+// only has a POST /login.json handler (its GET variant is an
+// unimplemented stub). Try the more common GET+bare shape first, and
+// fall back to POST+.json only if that shape isn't supported here.
 function authenticate(username, password) {
-    return tryLogin(LOGIN_URL, username, password).then(function (result) {
-        return result.retryable ? tryLogin(LOGIN_URL + '.json', username, password) : result;
+    return tryLogin('GET', LOGIN_URL, username, password).then(function (result) {
+        return result.retryable ? tryLogin('POST', LOGIN_URL + '.json', username, password) : result;
     }).then(function (result) {
         if (!result.ok) {
             return null;
