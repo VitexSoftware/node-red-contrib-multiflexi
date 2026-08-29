@@ -39,15 +39,15 @@ const SESSION_TTL_MS = 5 * 60 * 1000;
 // authenticate() call below. getUser() never fabricates an entry.
 const authenticatedSessions = new Map();
 
-function authenticate(username, password) {
+function tryLogin(loginUrl, username, password) {
     return new Promise(function (resolve) {
         let parsed;
         try {
-            parsed = new URL(LOGIN_URL);
+            parsed = new URL(loginUrl);
             parsed.searchParams.set('username', username);
             parsed.searchParams.set('password', password);
         } catch (_) {
-            return resolve(null);
+            return resolve({ ok: false, retryable: false });
         }
 
         const options = {
@@ -64,25 +64,42 @@ function authenticate(username, password) {
             let data = '';
             res.on('data', function (chunk) { data += chunk; });
             res.on('end', function () {
-                let parsedBody = null;
-                try { parsedBody = JSON.parse(data); } catch (_) { /* ignore */ }
-
-                const ok = res.statusCode === 200 && parsedBody && parsedBody.token;
-                if (!ok) {
-                    resolve(null);
+                // 404/405 means this URL shape doesn't match the deployed
+                // API's routing convention (some backends require a format
+                // suffix like /login.json, others use the bare path) -
+                // that's worth retrying with the other shape, not a login
+                // failure.
+                if (res.statusCode === 404 || res.statusCode === 405) {
+                    resolve({ ok: false, retryable: true });
                     return;
                 }
 
-                authenticatedSessions.set(username, {
-                    permissions: DEFAULT_PERMISSIONS,
-                    expiresAt: Date.now() + SESSION_TTL_MS,
-                });
-                resolve({ username: username, permissions: DEFAULT_PERMISSIONS });
+                let parsedBody = null;
+                try { parsedBody = JSON.parse(data); } catch (_) { /* ignore */ }
+
+                resolve({ ok: res.statusCode === 200 && !!(parsedBody && parsedBody.token), retryable: false });
             });
         });
-        req.on('error', function () { resolve(null); });
-        req.on('timeout', function () { req.destroy(); resolve(null); });
+        req.on('error', function () { resolve({ ok: false, retryable: false }); });
+        req.on('timeout', function () { req.destroy(); resolve({ ok: false, retryable: false }); });
         req.end();
+    });
+}
+
+function authenticate(username, password) {
+    return tryLogin(LOGIN_URL, username, password).then(function (result) {
+        return result.retryable ? tryLogin(LOGIN_URL + '.json', username, password) : result;
+    }).then(function (result) {
+        if (!result.ok) {
+            return null;
+        }
+
+        authenticatedSessions.set(username, {
+            permissions: DEFAULT_PERMISSIONS,
+            expiresAt: Date.now() + SESSION_TTL_MS,
+        });
+
+        return { username: username, permissions: DEFAULT_PERMISSIONS };
     });
 }
 

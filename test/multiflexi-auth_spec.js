@@ -4,11 +4,26 @@ require('should');
 var http = require('http');
 
 describe('multiflexi-auth.js', function () {
-    var server, base, loginOutcome, authModule;
+    var server, base, loginOutcome, authModule, requestedPaths;
 
     beforeEach(function (done) {
-        loginOutcome = 'success'; // 'success' | 'badpassword' | 'error'
+        loginOutcome = 'success'; // 'success' | 'badpassword' | 'error' | 'suffix-required'
+        requestedPaths = [];
         server = http.createServer(function (req, res) {
+            requestedPaths.push(req.url.split('?')[0]);
+
+            if (loginOutcome === 'suffix-required') {
+                if (req.url.split('?')[0].endsWith('.json')) {
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ token: 'abc123' }));
+                } else {
+                    res.writeHead(404);
+                    res.end();
+                }
+
+                return;
+            }
+
             if (loginOutcome === 'success') {
                 res.writeHead(200, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ token: 'abc123', message: 'Token generated' }));
@@ -76,6 +91,17 @@ describe('multiflexi-auth.js', function () {
     it('never grants blanket admin ("*") permissions to any authenticated user', function () {
         return authModule.authenticate('dave', 'correct-password').then(function (user) {
             user.permissions.should.not.equal('*');
+        });
+    });
+
+    it('retries with a .json suffix when the bare login path 404s (backend routing convention differs)', function () {
+        loginOutcome = 'suffix-required';
+
+        return authModule.authenticate('erin', 'correct-password').then(function (user) {
+            user.should.eql({ username: 'erin', permissions: 'read' });
+            requestedPaths.length.should.equal(2);
+            requestedPaths[0].should.not.endWith('.json');
+            requestedPaths[1].should.endWith('.json');
         });
     });
 });
