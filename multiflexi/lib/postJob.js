@@ -5,6 +5,30 @@ const https = require('https');
 const { URL } = require('url');
 
 /**
+ * Build the Authorization header value for a multiflexi-config node's
+ * credentials, preferring a bearer token (issued via
+ * `multiflexi-cli token:generate`) over legacy HTTP Basic username/password.
+ *
+ * @param {object} credentials a multiflexi-config node's `.credentials`
+ * @returns {string|null} header value, or null if no credentials are set
+ */
+function buildAuthHeader(credentials) {
+    if (!credentials) {
+        return null;
+    }
+    if (credentials.token) {
+        return 'Bearer ' + credentials.token;
+    }
+    if (credentials.username || credentials.password) {
+        const basic = Buffer.from(
+            (credentials.username || '') + ':' + (credentials.password || ''),
+        ).toString('base64');
+        return 'Basic ' + basic;
+    }
+    return null;
+}
+
+/**
  * Schedule a MultiFlexi job via the REST API (POST {baseUrl}/job/).
  *
  * Shared by the static multiflexi-runtemplate node and the dynamically
@@ -20,11 +44,7 @@ function postJob(server, body) {
         const payload = JSON.stringify(body);
         const transport = target.protocol === 'https:' ? https : http;
 
-        const auth = server.credentials
-            ? Buffer.from(
-                  (server.credentials.username || '') + ':' + (server.credentials.password || ''),
-              ).toString('base64')
-            : '';
+        const authHeader = buildAuthHeader(server.credentials);
 
         const options = {
             method: 'POST',
@@ -36,8 +56,8 @@ function postJob(server, body) {
                 'Content-Length': Buffer.byteLength(payload),
             },
         };
-        if (auth) {
-            options.headers.Authorization = 'Basic ' + auth;
+        if (authHeader) {
+            options.headers.Authorization = authHeader;
         }
 
         const req = transport.request(options, (res) => {
@@ -65,4 +85,4 @@ function postJob(server, body) {
     });
 }
 
-module.exports = { postJob };
+module.exports = { postJob, buildAuthHeader };

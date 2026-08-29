@@ -1,3 +1,24 @@
+node-red-contrib-multiflexi (0.4.0) trixie; urgency=medium
+
+  * Security: multiflexi-event and multiflexi-catalog now refuse to register
+    their HTTP routes at all when no X-MultiFlexi-Token shared secret is
+    configured, instead of silently accepting unauthenticated requests.
+    Token comparison is now constant-time.
+  * Security: multiflexi-auth.js no longer grants every authenticated
+    MultiFlexi user blanket Node-RED admin ('*') permissions, and no longer
+    returns a synthetic full-permission user for any username - getUser()
+    only resolves a session created by a prior successful authenticate()
+    call, and that session expires after 5 minutes. authenticate() now uses
+    the real /login endpoint instead of probing apps.json.
+  * multiflexi-config gains a token credential field; outbound requests
+    (multiflexi-runtemplate, multiflexi-map) send it as an Authorization:
+    Bearer header when set, falling back to HTTP Basic auth otherwise.
+  * multiflexi-config's /multiflexi/default-url admin endpoint now requires
+    the multiflexi.read permission, matching the other admin endpoints.
+  * Bump to match package.json 0.4.0 (multiflexi-map, multiflexi-auth.js).
+
+ -- Vítězslav Dvořák <info@vitexsoftware.cz>  Sat, 29 Aug 2026 00:00:00 +0200
+
 node-red-contrib-multiflexi (0.3.9) trixie; urgency=medium
 
   * Drop node-body-parser, node-cookie-parser from Depends: standard Debian

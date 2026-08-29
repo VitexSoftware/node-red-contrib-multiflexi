@@ -3,6 +3,7 @@
 const path = require('path');
 const { postJob } = require('./lib/postJob');
 const { createStore } = require('./lib/catalog');
+const { timingSafeTokenEqual } = require('./lib/tokenAuth');
 
 /**
  * MultiFlexi Catalog node.
@@ -135,19 +136,24 @@ module.exports = function (RED) {
         // Base URL of the MultiFlexi web image endpoints (appimage.php etc.).
         node.appUrl = (config.appUrl || '/multiflexi/').trim();
 
+        if (!node.token) {
+            node.error('MultiFlexi catalog: no X-MultiFlexi-Token shared secret configured - refusing to register ' +
+                node.path + ' (this endpoint would otherwise accept unauthenticated catalog pushes). Set a token on this node.');
+            node.status({ fill: 'red', shape: 'ring', text: 'no shared secret - route disabled' });
+            return;
+        }
+
         // The daemon now sends identifiers only (no inlined icons), so the
         // payload is small; a 4mb limit is plenty.
         const maxSize = RED.settings.multiflexiCatalogMaxLength || '4mb';
         const jsonParser = bodyParser.json({ limit: maxSize });
 
         function handlePost(req, res) {
-            if (node.token) {
-                const incoming = (req.headers['x-multiflexi-token'] || '').trim();
-                if (incoming !== node.token) {
-                    res.sendStatus(401);
-                    node.warn('MultiFlexi catalog: rejected request with invalid X-MultiFlexi-Token from ' + req.ip);
-                    return;
-                }
+            const incoming = (req.headers['x-multiflexi-token'] || '').trim();
+            if (!timingSafeTokenEqual(incoming, node.token)) {
+                res.sendStatus(401);
+                node.warn('MultiFlexi catalog: rejected request with invalid X-MultiFlexi-Token from ' + req.ip);
+                return;
             }
 
             res.sendStatus(200); // respond immediately so the daemon does not block

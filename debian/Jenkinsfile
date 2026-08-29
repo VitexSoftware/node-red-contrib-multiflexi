@@ -20,6 +20,10 @@ node() {
         stage('SCM Checkout') {
             checkout scm
         }
+        stage('Unit Tests') {
+            sh 'npm ci || npm install'
+            sh 'npm test'
+        }
     }
 }
 

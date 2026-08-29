@@ -24,5 +24,6 @@ Description: Node-RED nodes for visual MultiFlexi process orchestration
   multiflexi-artifact    — splits a job.completed event into per-artifact
                            messages for building processing chains
  .
- Optional X-MultiFlexi-Token header validation. Secret stored encrypted
- in Node-RED credentials.
+ Mandatory X-MultiFlexi-Token header validation on inbound webhook routes.
+ Secret stored encrypted in Node-RED credentials. Outbound API calls prefer
+ a MultiFlexi bearer token (multiflexi-cli token:generate) over HTTP Basic auth.

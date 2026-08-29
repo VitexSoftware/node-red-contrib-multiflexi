@@ -15,21 +15,27 @@ module.exports = function (RED) {
         RED.nodes.createNode(this, config);
         this.name = config.name;
         this.baseUrl = (config.baseUrl || '').replace(/\/+$/, '');
-        // credentials.username / credentials.password are managed by Node-RED
+        // credentials.username / credentials.password / credentials.token are
+        // managed by Node-RED's encrypted credential store.
     }
 
     RED.nodes.registerType('multiflexi-config', MultiFlexiConfigNode, {
         credentials: {
             username: { type: 'text' },
             password: { type: 'password' },
+            token: { type: 'password' },
         },
     });
 
     // Expose the server-side default URL so the editor can pre-populate the field.
-    RED.httpAdmin.get('/multiflexi/default-url', function (req, res) {
-        const base = (process.env.MULTIFLEXI_URL || '').replace(/\/+$/, '');
-        res.json({
-            baseUrl: base ? base + '/VitexSoftware/MultiFlexi/1.0.0' : '',
-        });
-    });
+    RED.httpAdmin.get(
+        '/multiflexi/default-url',
+        RED.auth.needsPermission('multiflexi.read'),
+        function (req, res) {
+            const base = (process.env.MULTIFLEXI_URL || '').replace(/\/+$/, '');
+            res.json({
+                baseUrl: base ? base + '/VitexSoftware/MultiFlexi/1.0.0' : '',
+            });
+        },
+    );
 };

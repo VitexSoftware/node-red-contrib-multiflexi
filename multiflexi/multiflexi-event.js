@@ -3,6 +3,7 @@
 module.exports = function (RED) {
     var bodyParser = require('body-parser');
     var cookieParser = require('cookie-parser');
+    var { timingSafeTokenEqual } = require('./lib/tokenAuth');
 
     /**
      * MultiFlexi Event (trigger) node.
@@ -34,6 +35,13 @@ module.exports = function (RED) {
         node.appUuid = (config.appUuid || '').trim();
         node.token = (node.credentials && node.credentials.token ? node.credentials.token : (config.token || '')).trim();
 
+        if (!node.token) {
+            node.error('MultiFlexi event: no X-MultiFlexi-Token shared secret configured - refusing to register ' +
+                node.path + ' (this endpoint would otherwise accept unauthenticated events). Set a token on this node.');
+            node.status({ fill: 'red', shape: 'ring', text: 'no shared secret - route disabled' });
+            return;
+        }
+
         var maxSize = RED.settings.apiMaxLength || '5mb';
         var jsonParser = bodyParser.json({ limit: maxSize });
         var urlencParser = bodyParser.urlencoded({ limit: maxSize, extended: true });
@@ -63,13 +71,11 @@ module.exports = function (RED) {
         }
 
         function handlePost(req, res) {
-            if (node.token) {
-                var incoming = (req.headers['x-multiflexi-token'] || '').trim();
-                if (incoming !== node.token) {
-                    res.sendStatus(401);
-                    node.warn('MultiFlexi event: rejected request with invalid X-MultiFlexi-Token from ' + req.ip);
-                    return;
-                }
+            var incoming = (req.headers['x-multiflexi-token'] || '').trim();
+            if (!timingSafeTokenEqual(incoming, node.token)) {
+                res.sendStatus(401);
+                node.warn('MultiFlexi event: rejected request with invalid X-MultiFlexi-Token from ' + req.ip);
+                return;
             }
 
             // Respond immediately so the eventor daemon does not block.

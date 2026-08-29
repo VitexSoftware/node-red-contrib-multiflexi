@@ -8,6 +8,7 @@
         credentials: {
             username: { type: 'text' },
             password: { type: 'password' },
+            token: { type: 'password' },
         },
         label: function () {
             return this.name || this.baseUrl || 'MultiFlexi';
@@ -36,8 +37,13 @@
                placeholder="http://host/multiflexi/api/VitexSoftware/MultiFlexi/1.0.0" />
     </div>
     <div class="form-row">
+        <label for="node-config-input-token"><i class="fa fa-key"></i> API Token</label>
+        <input type="password" id="node-config-input-token"
+               placeholder="Bearer token from 'multiflexi-cli token:generate' (recommended)" />
+    </div>
+    <div class="form-row">
         <label for="node-config-input-username"><i class="fa fa-user"></i> Username</label>
-        <input type="text" id="node-config-input-username" />
+        <input type="text" id="node-config-input-username" placeholder="Only used if no API Token is set" />
     </div>
     <div class="form-row">
         <label for="node-config-input-password"><i class="fa fa-lock"></i> Password</label>
@@ -48,8 +54,16 @@
 <script type="text/html" data-help-name="multiflexi-config">
     <p>Connection to a MultiFlexi REST API instance.</p>
     <p>The <b>API Base URL</b> must include the version path, for example
-    <code>http://multiflexi.example.com/multiflexi/api/VitexSoftware/MultiFlexi/1.0.0</code>.
-    Authentication uses HTTP Basic auth with the configured username/password.</p>
+    <code>http://multiflexi.example.com/multiflexi/api/VitexSoftware/MultiFlexi/1.0.0</code>.</p>
+    <p><b>API Token</b> (recommended): a bearer token minted with
+    <code>multiflexi-cli token:generate --login svc-nodered</code>, scoped to a dedicated
+    low-privilege service account. When set, it is sent as
+    <code>Authorization: Bearer &lt;token&gt;</code> and username/password are ignored.</p>
+    <p><b>Username/Password</b> (legacy): HTTP Basic auth with a real MultiFlexi user
+    account. Only used when no API Token is configured. Prefer the token above so
+    Node-RED never has to hold a user's password.</p>
+    <p>Always use an <code>https://</code> Base URL in any environment other than
+    localhost - credentials/tokens are sent on every request.</p>
     <p>When the <code>MULTIFLEXI_URL</code> environment variable is set on the Node-RED server,
     the URL is pre-populated automatically when you open a new config node.</p>
 </script>

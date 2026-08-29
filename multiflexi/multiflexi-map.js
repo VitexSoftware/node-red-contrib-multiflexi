@@ -3,6 +3,7 @@
 var http = require('http');
 var https = require('https');
 var { URL } = require('url');
+var { buildAuthHeader } = require('./lib/postJob');
 
 /**
  * MultiFlexi Map node.
@@ -36,19 +37,15 @@ function apiRequest(server, method, pathSuffix, body) {
         var transport = target.protocol === 'https:' ? https : http;
         var payload = body ? JSON.stringify(body) : null;
 
-        var auth = server.credentials
-            ? Buffer.from(
-                  (server.credentials.username || '') + ':' + (server.credentials.password || '')
-              ).toString('base64')
-            : '';
+        var authHeader = buildAuthHeader(server.credentials);
 
         var headers = { 'Accept': 'application/json' };
         if (payload) {
             headers['Content-Type'] = 'application/json';
             headers['Content-Length'] = Buffer.byteLength(payload);
         }
-        if (auth) {
-            headers['Authorization'] = 'Basic ' + auth;
+        if (authHeader) {
+            headers['Authorization'] = authHeader;
         }
 
         var options = {
