@@ -2,7 +2,8 @@
 
 // Current version of this Pipeline https://github.com/VitexSoftware/BuildImages/blob/main/Test/Jenkinsfile
 
-String[] distributions = ['debian:trixie']
+String[] distributions = ['debian:trixie',
+            'debian:forky',]
 
 String vendor = 'vitexsoftware'
 
@@ -18,6 +19,7 @@ properties([
 node() {
     ansiColor('xterm') {
         stage('SCM Checkout') {
+            sh 'sudo chown -R jenkins:jenkins . 2>/dev/null || true'
             checkout scm
         }
         stage('Unit Tests') {
@@ -43,6 +45,7 @@ distributions.each { distro ->
         node {
             ansiColor('xterm') {
                 stage('Checkout ' + distroName) {
+                    sh 'sudo chown -R jenkins:jenkins . 2>/dev/null || true'
                     checkout scm
                     def imageName = vendor + '/' + distro
                     buildImage = docker.image(imageName)
