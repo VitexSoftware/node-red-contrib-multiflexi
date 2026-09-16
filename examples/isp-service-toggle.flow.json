@@ -1,0 +1,126 @@
+[
+    {
+        "id": "isp-toggle-tab",
+        "type": "tab",
+        "label": "ISP Service Toggle",
+        "disabled": false,
+        "info": "Bridges abraflexi-reminder's disconnect label to isp-tools BlockNet/UnblockNet.\n\nScenario 1: customer reaches the highest reminder level (ODPOJENO label set) -> BlockNet disconnects that customer.\nScenario 2: an overdue invoice is settled -> abraflexi-reminder-clean-labels checks the customer's remaining debts, and on reminder.labels.cleared -> UnblockNet restores the customer's network access and removes the ODPOJENO label itself.\n\nSERVICE_CLEAR_DISCONNECT_LABEL must stay disabled on abraflexi-reminder-clean-labels so UnblockNet (not clean-labels) is the one that removes ODPOJENO, only after connectivity is actually restored."
+    },
+    {
+        "id": "isp-toggle-config",
+        "type": "multiflexi-config",
+        "name": "MultiFlexi (local)",
+        "baseUrl": "http://localhost/api/VitexSoftware/MultiFlexi/1.0.0"
+    },
+    {
+        "id": "isp-event-disconnect",
+        "type": "multiflexi-event",
+        "name": "Customer marked ODPOJENO",
+        "path": "/multiflexi-event",
+        "eventType": "webhook.change",
+        "evidence": "adresar",
+        "operation": "update",
+        "appUuid": "",
+        "token": "",
+        "x": 170,
+        "y": 120,
+        "wires": [["isp-rt-blocknet"]]
+    },
+    {
+        "id": "isp-rt-blocknet",
+        "type": "multiflexi-runtemplate",
+        "name": "BlockNet (single customer)",
+        "server": "isp-toggle-config",
+        "runtemplateId": "",
+        "executor": "",
+        "scheduled": "now",
+        "env": "[{\"key\":\"CUSTOMER\",\"value\":\"\"}]",
+        "x": 460,
+        "y": 120,
+        "wires": [["isp-debug-block"]]
+    },
+    {
+        "id": "isp-debug-block",
+        "type": "debug",
+        "name": "disconnect result",
+        "active": true,
+        "complete": "payload",
+        "x": 730,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "isp-event-settled",
+        "type": "multiflexi-event",
+        "name": "Invoice settled",
+        "path": "/multiflexi-event",
+        "eventType": "webhook.change",
+        "evidence": "banka",
+        "operation": "create",
+        "appUuid": "",
+        "token": "",
+        "x": 150,
+        "y": 260,
+        "wires": [["isp-rt-cleanlabels"]]
+    },
+    {
+        "id": "isp-rt-cleanlabels",
+        "type": "multiflexi-runtemplate",
+        "name": "Clear Reminder Labels (single customer)",
+        "server": "isp-toggle-config",
+        "runtemplateId": "",
+        "executor": "",
+        "scheduled": "now",
+        "env": "[{\"key\":\"ABRAFLEXI_CUSTOMER\",\"value\":\"\"}]",
+        "x": 440,
+        "y": 260,
+        "wires": [["isp-debug-cleanlabels"]]
+    },
+    {
+        "id": "isp-debug-cleanlabels",
+        "type": "debug",
+        "name": "labels-cleared result",
+        "active": true,
+        "complete": "payload",
+        "x": 770,
+        "y": 260,
+        "wires": []
+    },
+    {
+        "id": "isp-event-cleared",
+        "type": "multiflexi-event",
+        "name": "reminder.labels.cleared",
+        "path": "/multiflexi-event",
+        "eventType": "job.completed",
+        "evidence": "",
+        "operation": "any",
+        "appUuid": "",
+        "token": "",
+        "x": 170,
+        "y": 380,
+        "wires": [["isp-rt-unblocknet"]]
+    },
+    {
+        "id": "isp-rt-unblocknet",
+        "type": "multiflexi-runtemplate",
+        "name": "UnblockNet (single customer)",
+        "server": "isp-toggle-config",
+        "runtemplateId": "",
+        "executor": "",
+        "scheduled": "now",
+        "env": "[{\"key\":\"CUSTOMER\",\"value\":\"\"}]",
+        "x": 470,
+        "y": 380,
+        "wires": [["isp-debug-unblock"]]
+    },
+    {
+        "id": "isp-debug-unblock",
+        "type": "debug",
+        "name": "reconnect result",
+        "active": true,
+        "complete": "payload",
+        "x": 740,
+        "y": 380,
+        "wires": []
+    }
+]
